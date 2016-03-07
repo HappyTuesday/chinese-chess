@@ -673,7 +673,7 @@ GameStatus.prototype.render = function(){
   }else{
      s += "正在进行第"+(this.total_game_count+1)+"次比赛，当前步数："+(this.step_count+1)+"。";
      if(this.whos_turn == this.user_color){
-       s += "请出棋。";
+       s += "请走棋：";
      }else{
        s += "机器正在思考中。。。"
      }

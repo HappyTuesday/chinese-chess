@@ -16,13 +16,17 @@
           <span id="message_span"></span>
         </div>
     </div>
-    <div class="controller-wrapper">
-      <button class="controller-btn" type="button" id="btn_restart">重新开始</button>
-      <button class="controller-btn" type="button" id="btn_back">悔棋</button>
-    </div>
     <div id="main_wrapper">
       <div id="panel_wrapper">
         <svg id="panel_svg" class="chess-panel" width="18cm" height="20cm" viewBox="-5 -5 90 100">
+          <defs>
+            <filter id="f1" x="0" y="0" width="200%" height="200%">
+            <feOffset result="offOut" in="SourceAlpha" dx="20" dy="20" />
+            <feGaussianBlur result="blurOut" in="offOut" stdDeviation="10" />
+            <feBlend in="SourceGraphic" in2="blurOut" mode="normal" />
+            </filter>
+          </defs>
+
           <rect class="border" x="-1" y="-1" width="82" height="92"></rect>
           <rect class="border inner" x="0" y="0" width="80" height="90"></rect>
           <line class="horizon 1 red" x1="0" y1="10" x2="80" y2="10"></line>
@@ -191,6 +195,10 @@
           </g>
         </svg>
       </div>
+    </div>
+    <div class="controller-wrapper">
+      <button class="controller-btn" type="button" id="btn_restart">重新开始</button>
+      <button class="controller-btn" type="button" id="btn_back">悔棋</button>
     </div>
     <footer>版权所有：©nickliu 2016</footer>
     <script src="js/site.js"></script>

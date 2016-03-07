@@ -1,11 +1,12 @@
 .chess-panel {
   fill: transparent;
+  margin: 10px 0px;
 }
 
 .chess-panel .border {
   stroke: #da1313;
   stroke-width: 0.1mm;
-  fill: white;
+  fill: #fcfcfc;
 }
 
 .chess-panel .border.inner{
@@ -28,7 +29,7 @@
   stroke: gray;
   fill: #eee;
   cursor: default;
-  box-shadow: 1px 1px 1px gray;
+  filter: drop-shadow();
 }
 
 .chess-panel .chessman:hover {
@@ -56,7 +57,38 @@
 
 .controller-btn {
   display: inline-block;
-  padding: 5px;
-  margin: 4px 5px 4px 0;
-  color: black;
+  margin: 5px 5px 8px 0;
+  color: #FFF;
+  background-color: #FF4351;
+  border-color: #FF4351;
+  font-weight: 400;
+  font-size: 16px;
+  font-family: "Helvetica Neue Light", "Helvetica Neue", Helvetica, Arial, "Lucida Grande", sans-serif;
+  text-decoration: none;
+  text-align: center;
+  line-height: 40px;
+  height: 40px;
+  padding: 0 40px;
+  display: inline-block;
+  appearance: none;
+  cursor: pointer;
+  border: none;
+  -webkit-box-sizing: border-box;
+  -moz-box-sizing: border-box;
+  box-sizing: border-box;
+  -webkit-transition-property: all;
+  transition-property: all;
+  -webkit-transition-duration: .3s;
+  transition-duration: .3s;
+}
+
+.controller-btn:hover {
+  background-color: #ff7680;
+  border-color: #ff7680;
+}
+
+.status-wrapper {
+  color: #333;
+  font-size: 18px;
+  font-weight: bold;
 }
