@@ -1,0 +1,48 @@
+.chess-panel {
+  fill: transparent;
+}
+
+.chess-panel .border {
+  stroke: black;
+  stroke-width: 0.1mm;
+  fill: white;
+}
+
+.chess-panel .horizon, .chess-panel .vertical, .chess-panel .slash {
+  stroke-width: 0.05mm;
+  stroke: black;
+}
+
+.chess-panel .title {
+  font-size: 1.5mm;
+  fill: black;
+  font-family: "华文隶书";
+}
+
+.chess-panel .chessman {
+  stroke-width: 0.1mm;
+  stroke: gray;
+  fill: white;
+  cursor: default;
+}
+
+.chess-panel .chessman text {
+  font-size: 1.1mm;
+  font-family: "幼圆";
+  cursor: default;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+}
+
+.chess-panel .chessman.red text {
+  stroke: red;
+}
+
+.chess-panel .chessman.black text {
+  stroke: black;
+}
+
+.controller-btn {
+  display: inline-block;
+  padding: 3px;
+}

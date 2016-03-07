@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>欢迎使用中国象棋</title>
+    <link rel="stylesheet" href="css/site.css" media="screen" charset="utf-8">
+  </head>
+  <body>
+    <header>
+    </header>
+    <div class="status-wrapper">
+        <div class="status-panel">
+          <span id="status_span"></span>
+        </div>
+        <div class="message-panel">
+          <span id="message_span"></span>
+        </div>
+    </div>
+    <div class="controller-wrapper">
+      <button class="controller-btn" type="button" id="btn_restart">重新开始</button>
+      <button class="controller-btn" type="button" id="btn_back">悔棋</button>
+    </div>
+    <div id="main_wrapper">
+      <div id="panel_wrapper">
+        <svg id="panel_svg" class="chess-panel" width="18cm" height="20cm" viewBox="-5 -5 90 100">
+          <rect class="border" x="0" y="0" width="80" height="90"></rect>
+          <line class="horizon 1 red" x1="0" y1="10" x2="80" y2="10"></line>
+          <line class="horizon 2 red" x1="0" y1="20" x2="80" y2="20"></line>
+          <line class="horizon 3 red" x1="0" y1="30" x2="80" y2="30"></line>
+          <line class="horizon 4 red" x1="0" y1="40" x2="80" y2="40"></line>
+
+          <line class="horizon 1 black" x1="0" y1="80" x2="80" y2="80"></line>
+          <line class="horizon 2 black" x1="0" y1="70" x2="80" y2="70"></line>
+          <line class="horizon 3 black" x1="0" y1="60" x2="80" y2="60"></line>
+          <line class="horizon 4 black" x1="0" y1="50" x2="80" y2="50"></line>
+
+          <line class="vertical 1 red" x1="10" y1="00" x2="10" y2="40"></line>
+          <line class="vertical 2 red" x1="20" y1="00" x2="20" y2="40"></line>
+          <line class="vertical 3 red" x1="30" y1="00" x2="30" y2="40"></line>
+          <line class="vertical 4 red" x1="40" y1="00" x2="40" y2="40"></line>
+          <line class="vertical 5 red" x1="50" y1="00" x2="50" y2="40"></line>
+          <line class="vertical 6 red" x1="60" y1="00" x2="60" y2="40"></line>
+          <line class="vertical 7 red" x1="70" y1="00" x2="70" y2="40"></line>
+
+          <line class="vertical 1 black" x1="10" y1="50" x2="10" y2="90"></line>
+          <line class="vertical 2 black" x1="20" y1="50" x2="20" y2="90"></line>
+          <line class="vertical 3 black" x1="30" y1="50" x2="30" y2="90"></line>
+          <line class="vertical 4 black" x1="40" y1="50" x2="40" y2="90"></line>
+          <line class="vertical 5 black" x1="50" y1="50" x2="50" y2="90"></line>
+          <line class="vertical 6 black" x1="60" y1="50" x2="60" y2="90"></line>
+          <line class="vertical 7 black" x1="70" y1="50" x2="70" y2="90"></line>
+
+          <line class="slash 1 red" x1="30" y1="0" x2="50" y2="20"></line>
+          <line class="slash 2 red" x1="50" y1="0" x2="30" y2="20"></line>
+
+          <line class="slash 1 black" x1="30" y1="90" x2="50" y2="70"></line>
+          <line class="slash 2 black" x1="50" y1="90" x2="30" y2="70"></line>
+
+          <text class="title red" x="10" y="47">楚河</text>
+          <text class="title black" x="59" y="47">汉界</text>
+
+          <g class="chessman red" id="red_king_1">
+            <circle r="4"></circle>
+            <text x="-2" y="1.3" width="8" height="8">将</text>
+          </g>
+          <g class="chessman red" id="red_rook_1">
+            <circle r="4"></circle>
+            <text x="-2" y="1.3" width="8" height="8">车</text>
+          </g>
+          <g class="chessman red" id="red_rook_2">
+            <circle r="4"></circle>
+            <text x="-2" y="1.3" width="8" height="8">车</text>
+          </g>
+          <g class="chessman red" id="red_horse_1">
+            <circle r="4"></circle>
+            <text x="-2" y="1.3" width="8" height="8">马</text>
+          </g>
+          <g class="chessman red" id="red_horse_2">
+            <circle r="4"></circle>
+            <text x="-2" y="1.3" width="8" height="8">马</text>
+          </g>
+          <g class="chessman red" id="red_cannon_1">
+            <circle r="4"></circle>
+            <text x="-2" y="1.3" width="8" height="8">炮</text>
+          </g>
+          <g class="chessman red" id="red_cannon_2">
+            <circle r="4"></circle>
+            <text x="-2" y="1.3" width="8" height="8">炮</text>
+          </g>
+          <g class="chessman red" id="red_bishop_1">
+            <circle r="4"></circle>
+            <text x="-2" y="1.3" width="8" height="8">仕</text>
+          </g>
+          <g class="chessman red" id="red_bishop_2">
+            <circle r="4"></circle>
+            <text x="-2" y="1.3" width="8" height="8">仕</text>
+          </g>
+          <g class="chessman red" id="red_elephant_1">
+            <circle r="4"></circle>
+            <text x="-2" y="1.3" width="8" height="8">象</text>
+          </g>
+          <g class="chessman red" id="red_elephant_2">
+            <circle r="4"></circle>
+            <text x="-2" y="1.3" width="8" height="8">象</text>
+          </g>
+          <g class="chessman red" id="red_pawn_1">
+            <circle r="4"></circle>
+            <text x="-2" y="1.3" width="8" height="8">兵</text>
+          </g>
+          <g class="chessman red" id="red_pawn_2">
+            <circle r="4"></circle>
+            <text x="-2" y="1.3" width="8" height="8">兵</text>
+          </g>
+          <g class="chessman red" id="red_pawn_3">
+            <circle r="4"></circle>
+            <text x="-2" y="1.3" width="8" height="8">兵</text>
+          </g>
+          <g class="chessman red" id="red_pawn_4">
+            <circle r="4"></circle>
+            <text x="-2" y="1.3" width="8" height="8">兵</text>
+          </g>
+          <g class="chessman red" id="red_pawn_5">
+            <circle r="4"></circle>
+            <text x="-2" y="1.3" width="8" height="8">兵</text>
+          </g>
+
+          <g class="chessman black" id="black_king_1">
+            <circle r="4"></circle>
+            <text x="-2" y="1.3" width="8" height="8">将</text>
+          </g>
+          <g class="chessman black" id="black_rook_1">
+            <circle r="4"></circle>
+            <text x="-2" y="1.3" width="8" height="8">车</text>
+          </g>
+          <g class="chessman black" id="black_rook_2">
+            <circle r="4"></circle>
+            <text x="-2" y="1.3" width="8" height="8">车</text>
+          </g>
+          <g class="chessman black" id="black_horse_1">
+            <circle r="4"></circle>
+            <text x="-2" y="1.3" width="8" height="8">马</text>
+          </g>
+          <g class="chessman black" id="black_horse_2">
+            <circle r="4"></circle>
+            <text x="-2" y="1.3" width="8" height="8">马</text>
+          </g>
+          <g class="chessman black" id="black_cannon_1">
+            <circle r="4"></circle>
+            <text x="-2" y="1.3" width="8" height="8">炮</text>
+          </g>
+          <g class="chessman black" id="black_cannon_2">
+            <circle r="4"></circle>
+            <text x="-2" y="1.3" width="8" height="8">炮</text>
+          </g>
+          <g class="chessman black" id="black_bishop_1">
+            <circle r="4"></circle>
+            <text x="-2" y="1.3" width="8" height="8">仕</text>
+          </g>
+          <g class="chessman black" id="black_bishop_2">
+            <circle r="4"></circle>
+            <text x="-2" y="1.3" width="8" height="8">仕</text>
+          </g>
+          <g class="chessman black" id="black_elephant_1">
+            <circle r="4"></circle>
+            <text x="-2" y="1.3" width="8" height="8">象</text>
+          </g>
+          <g class="chessman black" id="black_elephant_2">
+            <circle r="4"></circle>
+            <text x="-2" y="1.3" width="8" height="8">象</text>
+          </g>
+          <g class="chessman black" id="black_pawn_1">
+            <circle r="4"></circle>
+            <text x="-2" y="1.3" width="8" height="8">兵</text>
+          </g>
+          <g class="chessman black" id="black_pawn_2">
+            <circle r="4"></circle>
+            <text x="-2" y="1.3" width="8" height="8">兵</text>
+          </g>
+          <g class="chessman black" id="black_pawn_3">
+            <circle r="4"></circle>
+            <text x="-2" y="1.3" width="8" height="8">兵</text>
+          </g>
+          <g class="chessman black" id="black_pawn_4">
+            <circle r="4"></circle>
+            <text x="-2" y="1.3" width="8" height="8">兵</text>
+          </g>
+          <g class="chessman black" id="black_pawn_5">
+            <circle r="4"></circle>
+            <text x="-2" y="1.3" width="8" height="8">兵</text>
+          </g>
+        </svg>
+      </div>
+    </div>
+    <footer>版权所有：©nickliu 2016</footer>
+    <script src="js/site.js"></script>
+  </body>
+</html>
