@@ -3,14 +3,18 @@
 }
 
 .chess-panel .border {
-  stroke: black;
+  stroke: #da1313;
   stroke-width: 0.1mm;
   fill: white;
 }
 
+.chess-panel .border.inner{
+  stroke-width: 0.02mm;
+}
+
 .chess-panel .horizon, .chess-panel .vertical, .chess-panel .slash {
-  stroke-width: 0.05mm;
-  stroke: black;
+  stroke-width: 0.02mm;
+  stroke: #da1313;
 }
 
 .chess-panel .title {
@@ -20,10 +24,15 @@
 }
 
 .chess-panel .chessman {
-  stroke-width: 0.1mm;
+  stroke-width: 0.04mm;
   stroke: gray;
-  fill: white;
+  fill: #eee;
   cursor: default;
+  box-shadow: 1px 1px 1px gray;
+}
+
+.chess-panel .chessman:hover {
+  fill: #ddd;
 }
 
 .chess-panel .chessman text {
@@ -32,17 +41,22 @@
   cursor: default;
   -webkit-user-select: none;
   -moz-user-select: none;
+  stroke-width: 0.03mm;
 }
 
 .chess-panel .chessman.red text {
-  stroke: red;
+  stroke: #f00;
+  fill: #d00;
 }
 
 .chess-panel .chessman.black text {
-  stroke: black;
+  stroke: #000;
+  fill: #222;
 }
 
 .controller-btn {
   display: inline-block;
-  padding: 3px;
+  padding: 5px;
+  margin: 4px 5px 4px 0;
+  color: black;
 }

@@ -35,7 +35,7 @@ function Chess(){
   this.square = new Array(256).reset();
   this.pieces = new Array(256).reset();
   this.move_path = new Array(256);
-  this.max_depth = 5;
+  this.max_depth = 6;
   this.current_best_move = null;
   this.maximum_color = 0;
 }
@@ -454,7 +454,7 @@ Chess.prototype.reverse_move = function(move){
 Chess.prototype.find_best_move = function(color){
   this.current_best_move = null;
   this.maximum_color = color;
-  this.max_depth = 7;
+  //this.max_depth = 7;
 
   // profile
   this.total_evaluated_times = 0;
