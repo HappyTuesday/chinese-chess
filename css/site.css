@@ -24,6 +24,15 @@
   stroke: gray;
   fill: white;
   cursor: default;
+  display: none;
+}
+
+.chess-panel .chessman.alive {
+  display: block;
+}
+
+.chess-panel .chessman.selected {
+  stroke: red;
 }
 
 .chess-panel .chessman text {
