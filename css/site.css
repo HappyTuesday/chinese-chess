@@ -30,10 +30,19 @@
   fill: #eee;
   cursor: default;
   filter: drop-shadow();
+  display: none;
 }
 
 .chess-panel .chessman:hover {
   fill: #ddd;
+}
+
+.chess-panel .chessman.alive {
+  display: block;
+}
+
+.chess-panel .chessman.selected {
+  stroke: red;
 }
 
 .chess-panel .chessman text {
