@@ -1,6 +1,7 @@
 .chess-panel {
   fill: transparent;
   margin: 10px 0px;
+  cursor: default;
 }
 
 .chess-panel .border {
@@ -22,11 +23,13 @@
   font-size: 1.5mm;
   fill: black;
   font-family: "华文隶书";
+  -webkit-user-select: none;
+  -moz-user-select: none;
 }
 
 .chess-panel .chessman {
   stroke-width: 0.04mm;
-  stroke: gray;
+  stroke: #ccc;
   fill: #eee;
   cursor: default;
   filter: drop-shadow();
@@ -43,6 +46,7 @@
 
 .chess-panel .chessman.selected {
   stroke: red;
+  fill: #ddd;
 }
 
 .chess-panel .chessman text {

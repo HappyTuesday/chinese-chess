@@ -685,9 +685,7 @@ function Interactive(chess,render,status){
   this.chess = chess;
   this.render = render;
   this.status = status;
-  this.current_moving_chessman = null;
-  this.origin_mouse_pos = {x:0,y:0};
-  this.origin_chessman_pos = {x:0,y:0};
+  this.selected_chessman = 0;
 }
 
 Interactive.prototype.transform_from_screen_to_panel = function(x,y){
@@ -702,12 +700,7 @@ Interactive.prototype.init = function(){
   this.svg = document.getElementById('panel_svg');
   this.matrix = this.svg.getScreenCTM().inverse();
   this.panel_wrapper = document.getElementById('panel_wrapper');
-  this.panel_wrapper.addEventListener('mousemove',this.on_mouse_move.bind(this),true);
-  var chessman_list = document.getElementsByClassName('chessman');
-  for(var i=0;i<chessman_list.length;i++){
-    chessman_list[i].addEventListener('mousedown',this.on_mouse_down.bind(this),false);
-    chessman_list[i].addEventListener('mouseup',this.on_mouse_up.bind(this),false);
-  }
+  this.svg.addEventListener('click',this.on_board_click.bind(this),true);
   document.getElementById('btn_restart').addEventListener('click',this.on_restart_click.bind(this),true);
   document.getElementById('btn_back').addEventListener('click',this.on_back_click.bind(this),true);
   this.reset();
@@ -719,6 +712,7 @@ Interactive.prototype.reset = function(){
   this.status.step_count = 0;
   this.status.step_history = [];
   this.status.whos_turn = this.status.user_color = null;
+  this.selected_chessman = 0;
   this.status.game_over = false;
   this.status.render();
 }
@@ -729,108 +723,43 @@ Interactive.prototype.on_restart_click = function(e){
 
 Interactive.prototype.on_back_click = function(e){
   if(this.status.whos_turn != this.status.user_color) return;
-  for(var i = 0; i < 2; i++){
-    if(this.status.step_history.length == 0) return;
-    var move = this.status.step_history.pop();
-    var move_info = Chess.decode_move(move);
-    this.chess.reverse_move(move);
-    this.render.move_chessman(move_info[2],move_info[0]);
-    if(move_info[3]){
-      this.render.move_chessman(move_info[3],move_info[1]);
-    }
-  }
-}
-
-Interactive.prototype.on_mouse_move = function(e){
-  if(this.current_moving_chessman == null) return;
-  this.current_mouse_pos = this.transform_from_screen_to_panel(e.screenX, e.screenY);
-  var deltaX = this.current_mouse_pos.x - this.origin_mouse_pos.x;
-  var deltaY = this.current_mouse_pos.y - this.origin_mouse_pos.y;
-  this.current_chessman_pos = {
-    x: Math.max(0,Math.min(80,this.origin_chessman_pos.x + deltaX)),
-    y: Math.max(0,Math.min(90,this.origin_chessman_pos.y + deltaY))
-  };
-  this.current_moving_chessman.setAttribute('transform',"translate("+this.current_chessman_pos.x+","+this.current_chessman_pos.y+")");
-  return true;
-}
-
-Interactive.prototype.on_mouse_down = function(e){
-  if(this.current_moving_chessman) return;
-  this.current_moving_chessman = e.currentTarget;
-  var translate_match = this.current_moving_chessman.getAttribute('transform').match(/translate\(([\d\.]+),([\d\.]+)\)/);
-  this.origin_chessman_pos = {x: parseFloat(translate_match[1]), y: parseFloat(translate_match[2])};
-  this.origin_mouse_pos = this.transform_from_screen_to_panel(e.screenX, e.screenY);
-}
-
-Interactive.prototype.on_mouse_up = function(e){
-  if(this.current_moving_chessman == null) return;
-  var src = BoardRender.logic_address(this.origin_chessman_pos);
-  var dest = BoardRender.logic_address(this.current_chessman_pos);
-  if(src == dest) return;
-  var chessman = BoardRender.chessman_id_to_code(this.current_moving_chessman.id);
-  if(Chess.valid_address(dest) && !this.status.game_over && this.move_chessman(chessman,src,dest)){
-    // successfully moved a chessman
-  }else{
-    this.current_moving_chessman.setAttribute('transform',"translate("+this.origin_chessman_pos.x+","+this.origin_chessman_pos.y+")");
-  }
-  this.current_moving_chessman = null;
-}
-
-Interactive.prototype.on_chessman_click = function(e){
-  if(this.current_moving_chessman && this.current_moving_chessman != e.currentTarget){
-    return;
-  }
-  this.current_moving_chessman = e.currentTarget;
-  var chessman = BoardRender.chessman_id_to_code(this.current_moving_chessman.id);
-  this.render.active_chessman(chessman);
-  var translate_match = this.current_moving_chessman.getAttribute('transform').match(/translate\(([\d\.]+),([\d\.]+)\)/);
-  this.origin_chessman_pos = {x: parseFloat(translate_match[1]), y: parseFloat(translate_match[2])};
-  this.origin_mouse_pos = this.transform_from_screen_to_panel(e.screenX, e.screenY);
+  this.reverse_move();
 }
 
 Interactive.prototype.on_board_click = function(e){
-  if(this.current_moving_chessman == null) return;
-  this.current_mouse_pos = this.transform_from_screen_to_panel(e.screenX, e.screenY);
-  var deltaX = this.current_mouse_pos.x - this.origin_mouse_pos.x;
-  var deltaY = this.current_mouse_pos.y - this.origin_mouse_pos.y;
-  this.current_chessman_pos = {
-    x: Math.max(0,Math.min(80,this.origin_chessman_pos.x + deltaX)),
-    y: Math.max(0,Math.min(90,this.origin_chessman_pos.y + deltaY))
-  };
-  var src = BoardRender.logic_address(this.origin_chessman_pos);
-  var dest = BoardRender.logic_address(this.current_chessman_pos);
-  if(src == dest) return;
-  var chessman = BoardRender.chessman_id_to_code(this.current_moving_chessman.id);
-  if(Chess.valid_address(dest) && !this.status.game_over && this.move_chessman(chessman,src,dest)){
-    // successfully moved a chessman
-  }else{
-    this.current_moving_chessman.setAttribute('transform',"translate("+this.origin_chessman_pos.x+","+this.origin_chessman_pos.y+")");
+  if(this.status.game_over) return;
+  var render_addr = this.transform_from_screen_to_panel(e.offsetX, e.offsetY);
+  var addr = BoardRender.logic_address(render_addr);
+  if(!Chess.valid_address(addr)) return;
+  var chessman = this.chess.get_square()[addr];
+  var color = Chess.decode_chessman(chessman)[0];
+  if(chessman != 0 && this.status.user_color == null){
+    this.status.whos_turn = this.status.user_color = color;
   }
-  this.current_moving_chessman = null;
+  if(this.status.user_color != this.status.whos_turn) return;
+  if(this.selected_chessman == 0 && this.status.user_color != color) return;
+  if(chessman == 0 && this.selected_chessman == 0) return;
+  if(this.selected_chessman == 0){
+    this.selected_chessman = chessman;
+    this.src = addr;
+    this.render.active_chessman(chessman);
+  }else if(addr == this.src){
+    this.selected_chessman = 0;
+    this.render.active_chessman(0);
+  }else{
+    var move = this.chess.generate_move(this.src,addr);
+    if(!this.chess.valid_move(move)) return;
+    this.apply_move(move, this.status.user_color);
+    this.selected_chessman = 0;
+    this.render.active_chessman(0);
+  }
 }
 
-Interactive.prototype.move_chessman = function(chessman, src, dest){
-  var move = this.chess.generate_move(src,dest);
-  if(!this.chess.valid_move(move)) return false;
-  var color = Chess.decode_chessman(chessman)[0];
-  if(this.status.user_color == null){
-    this.status.user_color = color;
-    this.whos_turn = color;
-  }else if(this.status.user_color != color){
-    return false;
-  }else if(this.status.whos_turn != color){
-    return false;
-  }
-
+Interactive.prototype.apply_move = function(move, color){
   this.status.step_count += 1;
   this.chess.apply_move(move);
-  var killed_chessman = Chess.decode_move(move)[3];
-  if(killed_chessman > 0){
-    this.render.kill_chessman(killed_chessman);
-  }
   this.status.step_history.push(move);
-  this.render.move_chessman(chessman,dest);
-  this.render.active_chessman(chessman);
+  this.render.apply_move(move);
   if(this.chess.game_over()){
     this.on_game_over();
     this.status.render();
@@ -845,14 +774,8 @@ Interactive.prototype.move_chessman = function(chessman, src, dest){
       }else{
         this.status.step_count += 1;
         this.chess.apply_move(next_move);
-        var next_move_info = Chess.decode_move(next_move);
-        var next_killed_chessman = next_move_info[3];
-        if(next_killed_chessman > 0){
-          this.render.kill_chessman(next_killed_chessman);
-        }
         this.status.step_history.push(next_move);
-        this.render.move_chessman(next_move_info[2], next_move_info[1]);
-        this.render.active_chessman(next_move_info[2]);
+        this.render.apply_move(next_move);
         if(this.chess.game_over()){
           this.on_game_over();
         }else{
@@ -866,11 +789,24 @@ Interactive.prototype.move_chessman = function(chessman, src, dest){
   return true;
 }
 
+Interactive.prototype.reverse_move = function(){
+  for(var i = 0; i < 2; i++){
+    if(this.status.step_history.length == 0) return;
+    var move = this.status.step_history.pop();
+    var move_info = Chess.decode_move(move);
+    this.chess.reverse_move(move);
+    this.render.reverse_move(move);
+    if(this.status.game_over){
+      this.status.game_over = false;
+    }
+  }
+}
+
 Interactive.prototype.on_game_over = function(){
   this.status.game_over = true;
-  this.total_game_count += 1;
+  this.status.total_game_count += 1;
   if(this.status.whos_turn != this.status.user_color){
-    this.user_failed_game_count += 1;
+    this.status.user_failed_game_count += 1;
   }
   this.status.render();
 }
@@ -901,7 +837,7 @@ BoardRender.chessman_code_to_id = function(chessman_code){
 BoardRender.prototype.reset_board = function(square){
   for(var i=0;i<square.length;i++){
     if(Chess.valid_address(i) && square[i] > 0){
-      this.move_chessman(square[i],i);
+      this.apply_move(Chess.encode_move(0x33, i, square[i], 0));
     }
   }
 }
@@ -909,24 +845,43 @@ BoardRender.prototype.reset_board = function(square){
 BoardRender.prototype.active_chessman = function(chessman){
   if(this.current_active_chessman){
     this.current_active_chessman.classList.remove('selected');
+    this.current_active_chessman = null;
   }
-  var chessman_id = BoardRender.chessman_code_to_id(chessman);
-  this.current_active_chessman = document.getElementById(chessman_id);
-  this.current_active_chessman.classList.add('selected');
+  if(chessman != 0){
+    var chessman_id = BoardRender.chessman_code_to_id(chessman);
+    this.current_active_chessman = document.getElementById(chessman_id);
+    this.current_active_chessman.classList.add('selected');
+  }
 }
 
-BoardRender.prototype.move_chessman = function(chessman, to_address){
-  var render_address = BoardRender.render_address(to_address);
-  var chessman_id = BoardRender.chessman_code_to_id(chessman);
-  var ele = document.getElementById(chessman_id);
-  ele.setAttribute('transform',"translate("+render_address.x+","+render_address.y+")");
-  ele.classList.add('alive');
+BoardRender.prototype.apply_move = function(move){
+  var move_info = Chess.decode_move(move);
+  if(move_info[3]){
+    this.kill_chessman(move_info[3]);
+  }
+  var dest = BoardRender.render_address(move_info[1]);
+  var chessman = document.getElementById(BoardRender.chessman_code_to_id(move_info[2]));
+  chessman.setAttribute('transform',"translate(" + dest.x + "," + dest.y + ")");
+  chessman.classList.add('alive');
 }
 
-BoardRender.prototype.kill_chessman = function(chessman){
-  var chessman_id = BoardRender.chessman_code_to_id(chessman);
-  var ele = document.getElementById(chessman_id);
-  ele.classList.remove('alive');
+BoardRender.prototype.reverse_move = function(move){
+  var move_info = Chess.decode_move(move);
+  var src = BoardRender.render_address(move_info[0]);
+  var chessman = document.getElementById(BoardRender.chessman_code_to_id(move_info[2]));
+  chessman.setAttribute('transform',"translate(" + src.x + "," + src.y + ")");
+  chessman.classList.add('alive');
+  if(move_info[3]){
+    var dest = BoardRender.render_address(move_info[1]);
+    var chessman_killed = document.getElementById(BoardRender.chessman_code_to_id(move_info[3]));
+    chessman_killed.setAttribute('transform',"translate(" + dest.x + "," + dest.y + ")");
+    chessman_killed.classList.add('alive');
+  }
+}
+
+BoardRender.prototype.kill_chessman = function(chessman_code){
+  var chessman = document.getElementById(BoardRender.chessman_code_to_id(chessman_code));
+  chessman.classList.remove('alive');
 }
 
 function Game(){
