@@ -690,8 +690,8 @@ function Interactive(chess,render,status){
 
 Interactive.prototype.transform_from_screen_to_panel = function(x,y){
   var pt = this.svg.createSVGPoint();
-  pt.x = x;
-  pt.y = y;
+  pt.x = x - this.svg.clientLeft;
+  pt.y = y - this.svg.clientTop;
   var pt2 = pt.matrixTransform(this.matrix);
   return {x: pt2.x, y: pt2.y};
 }
@@ -728,7 +728,7 @@ Interactive.prototype.on_back_click = function(e){
 
 Interactive.prototype.on_board_click = function(e){
   if(this.status.game_over) return;
-  var render_addr = this.transform_from_screen_to_panel(e.clientX, e.clientY);
+  var render_addr = this.transform_from_screen_to_panel(e.pageX, e.pageY);
   var addr = BoardRender.logic_address(render_addr);
   if(!Chess.valid_address(addr)) return;
   var chessman = this.chess.get_square()[addr];
