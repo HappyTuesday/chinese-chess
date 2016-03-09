@@ -483,9 +483,9 @@ Chess.prototype.game_over = function(){
 Chess.prototype.find_all_moves = function(color, depth){
   var moves = [];
   this.find_all_moves_rook(color,depth,moves);
-  this.find_all_moves_base(color,depth,moves);
   this.find_all_moves_cannon(color,depth,moves);
   this.find_all_moves_king(color,depth,moves);
+  this.find_all_moves_base(color,depth,moves);
 
   var move_scores = new Array(moves.length);
   this.sort_moves(moves, move_scores, color, depth);
@@ -728,7 +728,7 @@ Interactive.prototype.on_back_click = function(e){
 
 Interactive.prototype.on_board_click = function(e){
   if(this.status.game_over) return;
-  var render_addr = this.transform_from_screen_to_panel(e.offsetX, e.offsetY);
+  var render_addr = this.transform_from_screen_to_panel(e.clientX, e.clientY);
   var addr = BoardRender.logic_address(render_addr);
   if(!Chess.valid_address(addr)) return;
   var chessman = this.chess.get_square()[addr];
@@ -737,9 +737,9 @@ Interactive.prototype.on_board_click = function(e){
     this.status.whos_turn = this.status.user_color = color;
   }
   if(this.status.user_color != this.status.whos_turn) return;
-  if(this.selected_chessman == 0 && this.status.user_color != color) return;
+  if(this.status.user_color)
   if(chessman == 0 && this.selected_chessman == 0) return;
-  if(this.selected_chessman == 0){
+  if(this.selected_chessman == 0 || this.status.user_color == color){
     this.selected_chessman = chessman;
     this.src = addr;
     this.render.active_chessman(chessman);
