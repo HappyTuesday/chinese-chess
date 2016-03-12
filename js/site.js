@@ -26,6 +26,14 @@ Array.prototype.include = function(x) {
     return this.indexOf(x) >= 0;
 }
 
+function byte_rand(){
+    return Math.round(Math.random() * 0x100);
+}
+
+function int_rand(){
+    return (byte_rand() << 24) | (byte_rand() << 16) | (byte_rand() << 8) | byte_rand();
+}
+
 // chessman encoding:
 // color arms   no
 //     1    3    4
@@ -34,12 +42,18 @@ Array.prototype.include = function(x) {
 function Chess() {
     this.square = new Array(256).reset();
     this.pieces = new Array(256).reset();
+    this.hash_high = 0;
+    this.hash_low = 0;
     this.moves = new Array(1 << 10).reset();
     this.scores = new Array(1 << 10).reset();
     this.max_depth = 7;
     this.current_best_move = null;
     this.maximum_color = 0;
+    this.history = new Array(16 << 10).reset();
+    this.step_index = -0x10;
 }
+
+Chess.INFINITY = 65536;
 
 Chess.color_names = [
     // 0 = 0x00
@@ -84,13 +98,13 @@ Chess.arms_count = [
 
 Chess.arms_static_score = [
     // king
-    65535,
+    32768,
     // rook
     1000,
     // horse
     450,
     // cannon
-    450,
+    600,
     // bishop
     170,
     // elephant
@@ -359,6 +373,12 @@ Chess.decode_move = function(move) {
     return [move & 0xff, (move & 0xff00) >> 8, (move & 0xff0000) >> 16, move >>> 24]
 }
 
+// + address[8] color[1] arms[3] none[3] rand[1] -
+Chess.zorist = new Array(0x10000);
+for(var i = 0; i < Chess.zorist.length; i++){
+    Chess.zorist[i] = int_rand();
+}
+
 Chess.move_def_help = function(arm, delta_list, check_address, check_move) {
     var def = [new Array(256), new Array(256)];
     for (var color = 0; color < 2; color++) {
@@ -428,10 +448,16 @@ Chess.arms_names_index_map = Chess.arms_names.to_hash(
 
 Chess.prototype.reset_square = function(square) {
     this.pieces.reset();
+    this.hash_high = this.hash_low = 0;
     for (var i = 0; i < square.length; i++) {
         this.square[i] = square[i];
         this.pieces[square[i]] = i;
+        if(square[i]){
+            this.hash_low ^= Chess.zorist[(i << 8) | square[i] & 0xf0 | 0];
+            this.hash_high ^= Chess.zorist[(i << 8) | square[i] & 0xf0 | 1];
+        }
     }
+    this.step_index = -0x10;
 }
 
 Chess.prototype.get_square = function() {
@@ -451,13 +477,43 @@ Chess.prototype.apply_move = function(move) {
     this.square[move & 0xff] = 0;
     this.square[(move & 0xff00) >> 8] = (move & 0xff0000) >> 16;
     this.pieces[(move & 0xff0000) >> 16] = (move & 0xff00) >> 8;
+    
+    this.hash_low ^= Chess.zorist[(move & 0xff) << 8 | (move & 0xf00000) >> 16 | 0];
+    this.hash_high ^= Chess.zorist[(move & 0xff) << 8 | (move & 0xf00000) >> 16 | 1];
+    if(move & 0xff000000){
+        this.hash_low ^= Chess.zorist[move & 0xff00 | (move & 0xf0000000) >>> 24 | 0];
+        this.hash_high ^= Chess.zorist[move & 0xff00 | (move & 0xf0000000) >>> 24 | 1];
+    }
+    this.hash_low ^= Chess.zorist[move & 0xff00 | (move & 0xf00000) >> 16 | 0];
+    this.hash_high ^= Chess.zorist[move & 0xff00 | (move & 0xf00000) >> 16 | 1];
+    
+    this.step_index += 0x10;
+    this.history[this.step_index | 0x0] = this.hash_low;
+    this.history[this.step_index | 0x1] = this.hash_high;
+    this.history[this.step_index | 0x2] = move;
 }
 
 Chess.prototype.reverse_move = function(move) {
     this.square[move & 0xff] = (move & 0xff0000) >> 16;
     this.pieces[(move & 0xff0000) >> 16] = move & 0xff;
     this.square[(move & 0xff00) >> 8] = move >>> 24;
-    this.pieces[move >>> 24] = (move & 0xff00) >> 8;
+    if(move & 0xff000000){
+        this.pieces[move >>> 24] = (move & 0xff00) >> 8;
+    }
+    
+    this.hash_low ^= Chess.zorist[move & 0xff00 | (move & 0xf00000) >> 16 | 0];
+    this.hash_high ^= Chess.zorist[move & 0xff00 | (move & 0xf00000) >> 16 | 1];
+    if(move & 0xff000000){
+        this.hash_low ^= Chess.zorist[move & 0xff00 | (move & 0xf0000000) >>> 24 | 0];
+        this.hash_high ^= Chess.zorist[move & 0xff00 | (move & 0xf0000000) >>> 24 | 1];
+    }
+    this.hash_low ^= Chess.zorist[(move & 0xff) << 8 | (move & 0xf00000) >> 16 | 0];
+    this.hash_high ^= Chess.zorist[(move & 0xff) << 8 | (move & 0xf00000) >> 16 | 1];
+    
+    if(this.history[this.step_index | 2] != move){
+        console.error("invalid apply/reverse move sequence: " + this.print_move(move));
+    }
+    this.step_index -= 0x10;
 }
 
 Chess.prototype.find_best_move = function(color) {
@@ -472,7 +528,7 @@ Chess.prototype.find_best_move = function(color) {
     this.total_static_searched_nodes = 0;
     var start_time = new Date().getTime();
 
-    this.alpha_beta(color, this.max_depth, -131072, 131072, 0);
+    this.alpha_beta(color, this.max_depth, -Chess.INFINITY << 1, Chess.INFINITY << 1, 0);
 
     // profile
     var end_time = new Date().getTime();
@@ -495,44 +551,114 @@ Chess.prototype.valid_move = function(move) {
 }
 
 Chess.prototype.game_over = function() {
-    return this.pieces[0x01] == 0 || this.pieces[0x81] == 0;
+    if(this.pieces[0x01] == 0 || this.pieces[0x81] == 0){
+        return 1;
+    }
+    return this.check_if_repeat();
+}
+
+Chess.prototype.check_if_repeat = function(){
+    if(this.step_index < 0x40) return 0;
+    hash_low = this.history[this.step_index | 0x0];
+    hash_high = this.history[this.step_index | 0x1];
+    var move =  this.history[this.step_index | 0x2];
+    color = (move & 0x800000) >> 23;
+    var rep_count = 0;
+    for(var i = this.step_index; (i -= 0x20) >= 0 && rep_count < 2 && (this.history[i | 0x2] & 0xff000000) == 0;){
+        if(this.history[i | 0x0] == hash_low && this.history[i | 0x1] == hash_high){
+            rep_count++;
+        }
+    }
+    if(rep_count >= 2){
+        if(this.check_king(1 - color)){
+            return 3;
+        }else{
+            return 2;
+        }
+    }else{
+        return 0; 
+    }
 }
 
 Chess.prototype.alpha_beta = function(color, depth, alpha, beta, offset) {
     //profile
     this.total_searched_nodes++;
-    if (depth == 0 || this.game_over()) return this.evaluate(color, depth);
+    if (depth == 0){
+        return this.quies(color, depth,alpha,beta);
+    }else{
+        var status = this.game_over();
+        if(status == 3){
+            return Chess.INFINITY;
+        }else if(status == 2){
+            return 0;
+        }else if(status == 1){
+            return -Chess.INFINITY;
+        }
+    }
     var new_offset = this.find_all_moves(color, depth, offset);
     var best_move = null;
     var tried_times = 0;
     for (var i = offset; i < new_offset; i++) {
         var move = this.moves[i];
-        if(depth > this.max_depth - 2) console.debug("[alpha-beta][" + depth + "] move = " + this.print_move(move) + " | apply move");
+        //if(depth > this.max_depth - 2) console.debug("[alpha-beta][" + depth + "] move = " + this.print_move(move) + " | apply move");
         this.apply_move(move);
         if(this.check_king(color)){
             this.reverse_move(move);
-            if(depth > this.max_depth - 2) console.debug("[alpha-beta][" + depth + "] move = " + this.print_move(move) + " | check king, cancel move");
+            //if(depth > this.max_depth - 2) console.debug("[alpha-beta][" + depth + "] move = " + this.print_move(move) + " | check king, cancel move");
         }else{
             var value = - this.alpha_beta(1 - color, depth - 1, -beta, -alpha, new_offset);
             this.reverse_move(move);
             tried_times++;
-            if(depth > this.max_depth - 2) console.debug("[alpha-beta][" + depth + "] move = " + this.print_move(move) + " | cancel move, score = " + value);
+            //if(depth > this.max_depth - 2) console.debug("[alpha-beta][" + depth + "] move = " + this.print_move(move) + " | cancel move, score = " + value);
             if (value >= beta) {
                 return value;
             } else if (value > alpha) {
                 alpha = value;
                 best_move = move;
+                if(value >= Chess.INFINITY){
+                    break;
+                }
             }
         }
     }
     if(tried_times == 0){
-        return this.max - depth - 65536;
+        return this.max - depth - Chess.INFINITY;
     }
     if(depth == this.max_depth){
         this.current_best_move = best_move;
         console.debug("find best move: " + this.print_move(best_move) + ", score = " + alpha);
     }
     return alpha;
+}
+
+Chess.prototype.quies = function(color,depth,alpha,beta,offset){
+    var value = this.evaluate(color, depth);
+    if(value >= beta){
+        return beta;
+    }else if(value > alpha){
+        alpha = value;
+    }
+    var new_offset = this.find_all_moves(color, depth, offset);
+    for (var i = offset; i < new_offset; i++) {
+        var move = this.moves[i];
+        if((move & 0xff000000) == 0) break;
+        //if(depth > -2) console.debug("[quies][" + depth + "] move = " + this.print_move(move) + " | apply move");
+        this.apply_move(move);
+        value = - this.quies(1 - color, depth - 1, -beta, -alpha, new_offset);
+        this.reverse_move(move);
+        tried_times++;
+        //if(depth > -2) console.debug("[quies][" + depth + "] move = " + this.print_move(move) + " | cancel move, score = " + value);
+        if (value >= beta) {
+            return beta;
+        } else if (value > alpha) {
+            alpha = value;
+        }
+    }
+    return alpha;
+}
+
+Chess.prototype.filter_move = function(move){
+    return true;
 }
 
 Chess.prototype.evaluate = function(c, depth) {
@@ -734,7 +860,8 @@ Chess.prototype.find_all_moves_rook = function(color, depth, moves, offset) {
             for (var dest = src; Chess.board_mask[(dest = dest + delta)];) {
                 var killed_man = this.square[dest];
                 if (killed_man > 0 && (killed_man >> 7) == color) break;
-                moves[offset++] = src | (dest << 8) | (man << 16) | (killed_man << 24);
+                var move = src | (dest << 8) | (man << 16) | (killed_man << 24);
+                if(this.filter_move(move)) moves[offset++] = move;
                 if (killed_man > 0) break;
             }
         }
@@ -755,14 +882,16 @@ Chess.prototype.find_all_moves_cannon = function(color, depth, moves, offset) {
                 if (mark) {
                     if (killed_man > 0) {
                         if ((killed_man >> 7) != color) {
-                            moves[offset++] = src | (dest << 8) | (man << 16) | (killed_man << 24);
+                            var move = src | (dest << 8) | (man << 16) | (killed_man << 24);
+                            if(this.filter_move(move)) moves[offset++] = move;
                         }
                         break;
                     }
                 } else if (killed_man > 0) {
                     mark = true;
                 }else{
-                    moves[offset++] = src | (dest << 8) | (man << 16);
+                    var move = src | (dest << 8) | (man << 16);
+                    if(this.filter_move(move)) moves[offset++] = move;
                 }
             }
         }
@@ -788,7 +917,8 @@ Chess.prototype.find_all_moves_base = function(color, depth, moves, offset) {
                 } else if (arm == 5) {
                     if (this.square[(src + dest) >> 1] != 0) continue;
                 }
-                moves[offset++] = m | (no << 16) | (killed_man << 24);
+                var move = m | (no << 16) | (killed_man << 24);
+                if(this.filter_move(move)) moves[offset++] = move;
             }
         }
     }
@@ -810,7 +940,8 @@ Chess.prototype.find_all_moves_king = function(color, depth, moves, offset) {
             }
         }
         if (!found) {
-            moves[offset++] = pking1 | (pking2 << 8) | (king1 << 16) | (king2 << 24);
+            var move = pking1 | (pking2 << 8) | (king1 << 16) | (king2 << 24);
+            if(this.filter_move(move)) moves[offset++] = move;
         }
     }
     return offset;
@@ -879,8 +1010,44 @@ TestEngine.prototype.test_check_king = function() {
     this.assert(true,this.chess.check_king(0));
 }
 
+TestEngine.prototype.test_zorist = function(){
+    this.chess.reset();
+    var hash_high = this.chess.hash_high, hash_low = this.chess.hash_low;
+    this.chess.apply_move(0x00433311);
+    this.assert(false, this.chess.hash_high == hash_high && this.chess.hash_low == hash_low);
+    this.chess.reverse_move(0x00433311);
+    this.assert(true, this.chess.hash_high == hash_high && this.chess.hash_low == hash_low);
+    
+    this.chess.apply_move(0xa131c454);
+    this.assert(false, this.chess.hash_high == hash_high && this.chess.hash_low == hash_low);
+    this.chess.reverse_move(0xa131c454);
+    this.assert(true, this.chess.hash_high == hash_high && this.chess.hash_low == hash_low);
+}
+
+TestEngine.prototype.test_check_if_repeat = function(){
+    this.chess.reset();
+    this.chess.apply_move(0x00014737);
+    this.chess.apply_move(0x009145c3);
+    
+    this.chess.apply_move(0x00015747);
+    this.chess.apply_move(0x00915545);
+    this.chess.apply_move(0x00014757);
+    this.chess.apply_move(0x00914555);
+    
+    this.assert(0,this.chess.check_if_repeat());
+    
+    this.chess.apply_move(0x00015747);
+    this.chess.apply_move(0x00915545);
+    this.chess.apply_move(0x00014757);
+    this.chess.apply_move(0x00914555);
+    
+    this.assert(3,this.chess.check_if_repeat());
+}
+
 var test = new TestEngine();
 test.test_check_king();
+test.test_zorist();
+test.test_check_if_repeat();
 
 function GameStatus() {
     this.whos_turn = null;
@@ -888,19 +1055,28 @@ function GameStatus() {
     this.step_count = 0;
     this.total_game_count = 0;
     this.user_failed_game_count = 0;
-    this.game_over = false;
+    this.game_over = 0;
     this.message = "";
     this.step_history = [];
 }
 
 GameStatus.prototype.render = function() {
     var s = '';
-    if (this.game_over) {
+    if (this.game_over == 1) {
         if (this.whos_turn == this.user_color) {
             s += "你赢了。";
         }
         else {
             s += "你输了，这是你第" + this.user_failed_game_count + "次输了。";
+        }
+    } else if(this.game_over == 2){
+        s += "重复局面已出现三次，已判和棋。";
+    } else if(this.game_over == 3){
+        if (this.whos_turn != this.user_color) {
+            s += "你赢了。";
+        }
+        else {
+            s += "已长将三次，你输了，这是你第" + this.user_failed_game_count + "次输了。";
         }
     } else {
         s += "正在进行第" + (this.total_game_count + 1) + "次比赛，当前步数：" + (this.step_count + 1) + "。";
@@ -945,7 +1121,7 @@ Interactive.prototype.reset = function() {
     this.status.step_history = [];
     this.status.whos_turn = this.status.user_color = null;
     this.selected_chessman = 0;
-    this.status.game_over = false;
+    this.status.game_over = 0;
     this.status.render();
 }
 
@@ -992,30 +1168,25 @@ Interactive.prototype.apply_move = function(move, color) {
     this.chess.apply_move(move);
     this.status.step_history.push(move);
     this.render.apply_move(move);
-    if (this.chess.game_over()) {
-        this.on_game_over();
-        this.status.render();
-    } else {
+    if (!this.check_game_over()) {
         var next_color = 1 - color;
         this.status.whos_turn = next_color;
         setTimeout(function() {
             var next_move = this.chess.find_best_move(next_color);
             if (next_move == null || next_move == 0) {
                 this.status.whos_turn = color;
-                this.on_game_over();
+                this.on_game_over(1);
             } else {
                 this.status.step_count += 1;
                 this.chess.apply_move(next_move);
                 this.status.step_history.push(next_move);
                 this.render.apply_move(next_move);
-                if (this.chess.game_over()) {
-                    this.on_game_over();
-                } else {
+                if (!this.check_game_over()) {
                     this.status.whos_turn = color;
                 }
             }
             this.status.render();
-        }.bind(this), 1);
+        }.bind(this), 100);
     }
     this.status.render();
     return true;
@@ -1034,11 +1205,19 @@ Interactive.prototype.reverse_move = function() {
     }
 }
 
-Interactive.prototype.on_game_over = function() {
-    this.status.game_over = true;
-    this.status.total_game_count += 1;
-    if (this.status.whos_turn != this.status.user_color) {
-        this.status.user_failed_game_count += 1;
+Interactive.prototype.check_game_over = function(){
+    var status = this.chess.game_over();
+    this.on_game_over(status);
+    return status;
+}
+
+Interactive.prototype.on_game_over = function(status) {
+    if(status != 0){
+        this.status.game_over = status;
+        this.status.total_game_count += 1;
+        if (status == 1 && this.status.whos_turn != this.status.user_color || status == 3 && this.status.whos_turn == this.status.user_color) {
+            this.status.user_failed_game_count += 1;
+        }
     }
     this.status.render();
 }
