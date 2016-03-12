@@ -36,9 +36,7 @@ function Chess() {
     this.pieces = new Array(256).reset();
     this.moves = new Array(1 << 10).reset();
     this.scores = new Array(1 << 10).reset();
-    this.move_path = new Array(256);
-    this.max_depth = 14;
-    this.static_search_limit = 10;
+    this.max_depth = 7;
     this.current_best_move = null;
     this.maximum_color = 0;
 }
@@ -92,7 +90,7 @@ Chess.arms_static_score = [
     // horse
     450,
     // cannon
-    460,
+    450,
     // bishop
     170,
     // elephant
@@ -101,7 +99,7 @@ Chess.arms_static_score = [
     60,
 ];
 
-Chess.arms_location_score = [
+Chess.arms_location_score = [[
     // king
     [
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -256,7 +254,13 @@ Chess.arms_location_score = [
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     ],
-]
+],];
+
+Chess.arms_location_score[1] = Chess.arms_location_score[0].map(function(arms){
+   return arms.map(function(score,i){
+       return arms[i & 0xf0 ^ 0xf0 | i & 0x0f];
+   });
+});
 
 Chess.opening_square = [
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -321,7 +325,7 @@ Chess.king_room_mask = [
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 ];
 
-Chess.horse_lag_delta = [
+Chess.horse_leg_delta = [
     [0x0e, -0x01],
     [0x1f, 0x10],
     [0x21, 0x10],
@@ -331,6 +335,8 @@ Chess.horse_lag_delta = [
     [-0x21, -0x10],
     [-0x12, -0x01],
 ].unzip(0x22, 0x44);
+
+Chess.base_delta = [-0x01, 0x10, 0x01, -0x10];
 
 Chess.valid_address = function(address) {
     //return (address & 0x0f) >= 0x03 && (address & 0x0f) <= 0x0b && (address & 0xf0) >= 0x30 && (address & 0xf0) <= 0xc0;
@@ -481,7 +487,7 @@ Chess.prototype.find_best_move = function(color) {
 
 Chess.prototype.valid_move = function(move) {
     var chessman = (move & 0xff0000) >> 16;
-    var count = this.find_all_moves(chessman >> 7, 0, 0, false);
+    var count = this.find_all_moves(chessman >> 7, 0, 0);
     for (var i = 0; i < count; i++) {
         if (this.moves[i] == move) return true;
     }
@@ -495,28 +501,36 @@ Chess.prototype.game_over = function() {
 Chess.prototype.alpha_beta = function(color, depth, alpha, beta, offset) {
     //profile
     this.total_searched_nodes++;
-    if (depth < this.static_search_limit) this.total_static_searched_nodes++;
-
     if (depth == 0 || this.game_over()) return this.evaluate(color, depth);
-    var new_offset = this.find_all_moves(color, depth, offset, depth < this.static_search_limit);
-    if (new_offset == offset) {
-        return this.evaluate(color, depth);
-    }
+    var new_offset = this.find_all_moves(color, depth, offset);
+    var best_move = null;
+    var tried_times = 0;
     for (var i = offset; i < new_offset; i++) {
         var move = this.moves[i];
-        //console.debug("apply move: " + move.toString(16) + " | color = " + color + ", depth = " + depth);
+        if(depth > this.max_depth - 2) console.debug("[alpha-beta][" + depth + "] move = " + this.print_move(move) + " | apply move");
         this.apply_move(move);
-        this.move_path[this.max_depth - depth] = move;
-        var value = - this.alpha_beta(1 - color, depth - 1, -beta, -alpha, new_offset);
-        this.reverse_move(move);
-        if (value >= beta) {
-            return value;
-        } else if (value > alpha) {
-            alpha = value;
-            if (depth == this.max_depth) {
-                this.current_best_move = move;
+        if(this.check_king(color)){
+            this.reverse_move(move);
+            if(depth > this.max_depth - 2) console.debug("[alpha-beta][" + depth + "] move = " + this.print_move(move) + " | check king, cancel move");
+        }else{
+            var value = - this.alpha_beta(1 - color, depth - 1, -beta, -alpha, new_offset);
+            this.reverse_move(move);
+            tried_times++;
+            if(depth > this.max_depth - 2) console.debug("[alpha-beta][" + depth + "] move = " + this.print_move(move) + " | cancel move, score = " + value);
+            if (value >= beta) {
+                return value;
+            } else if (value > alpha) {
+                alpha = value;
+                best_move = move;
             }
         }
+    }
+    if(tried_times == 0){
+        return this.max - depth - 65536;
+    }
+    if(depth == this.max_depth){
+        this.current_best_move = best_move;
+        console.debug("find best move: " + this.print_move(best_move) + ", score = " + alpha);
     }
     return alpha;
 }
@@ -528,13 +542,13 @@ Chess.prototype.evaluate = function(c, depth) {
             man = (c << 7) | (arm << 4) | no;
             addr = this.pieces[man];
             if (addr != 0) {
-                score += Chess.arms_static_score[arm] + Chess.arms_location_score[arm][addr ^ ((0x100 - (c << 4)) & 0xff)];
+                score += Chess.arms_static_score[arm] + Chess.arms_location_score[c][arm][addr];
             }
 
             man = ((1 - c) << 7) | (arm << 4) | no;
             addr = this.pieces[man];
             if (addr != 0) {
-                score -= Chess.arms_static_score[arm] + Chess.arms_location_score[arm][addr ^ ((0x100 - (c << 4)) & 0xff)];
+                score -= Chess.arms_static_score[arm] + Chess.arms_location_score[1 - c][arm][addr];
             }
         }
     }
@@ -545,12 +559,142 @@ Chess.prototype.evaluate = function(c, depth) {
     return score;
 }
 
-Chess.prototype.find_all_moves = function(color, depth, offset, only_kill) {
+Chess.prototype.print_move = function(move){
+    var move_info = Chess.decode_move(move);
+    return move_info.map(function(x){return x.toString(16);}).join("-");
+}
+
+Chess.prototype.check_king_2 = function(color){
+    var c = color << 7, oc = (1 - color) << 7;
+    var king_addr = this.pieces[c | 0x01];
+    if(king_addr == 0) return true;
+    
+    // king, rook, cannon, pawn
+    for(var i = 0; i < 4; i++){
+        var delta = Chess.base_delta[i];
+        var adjacent = true, met = false;
+        for(var p = king_addr; Chess.board_mask[(p += delta)];adjacent = false){
+            var man = this.square[p], mtype = man & 0x70;
+            if(met){
+                if((man & 0xf0) == (oc | 0x30)){
+                    return true;
+                }else if(man){
+                    break;
+                }
+            }else if(man != 0){
+                met = true;
+                if((man & 0x80) != c && (mtype == 0x10 || mtype == 0x00 || adjacent && mtype == 0x60)){
+                    return true;
+                }
+            }
+        }
+    }
+        
+    // horse
+    var horse_ms = Chess.base_move_def[0x02][oc >> 7][king_addr];
+    for(var i = 0; i < horse_ms.length; i++){
+        var m = horse_ms[i];
+        var horse_addr = (m & 0xff00) >> 8;
+        var horse = this.square[horse_addr];
+        if(horse && (horse & 0x80) == oc && !this.square[horse_addr + Chess.horse_leg_delta[king_addr - horse_addr + 0x22]]){
+            return true;
+        }
+    }
+    
+    return false;
+}
+
+Chess.prototype.check_king = function(color){
+    var c = color << 7, oc = (1 - color) << 7;
+    var king_addr = this.pieces[c | 0x01];
+    if(king_addr == 0) return true;
+    
+    return this.valid_king_kill(this.pieces[oc | 0x01], king_addr) ||
+        this.valid_rook_kill(this.pieces[oc | 0x11], king_addr) ||
+        this.valid_rook_kill(this.pieces[oc | 0x12], king_addr) ||
+        this.valid_horse_kill(this.pieces[oc | 0x21], king_addr) ||
+        this.valid_horse_kill(this.pieces[oc | 0x22], king_addr) ||
+        this.valid_cannon_kill(this.pieces[oc | 0x31], king_addr) ||
+        this.valid_cannon_kill(this.pieces[oc | 0x32], king_addr) ||
+        this.valid_pawn_kill(this.pieces[oc | 0x61], king_addr) ||
+        this.valid_pawn_kill(this.pieces[oc | 0x62], king_addr) ||
+        this.valid_pawn_kill(this.pieces[oc | 0x63], king_addr) ||
+        this.valid_pawn_kill(this.pieces[oc | 0x64], king_addr) ||
+        this.valid_pawn_kill(this.pieces[oc | 0x65], king_addr);
+}
+
+Chess.prototype.valid_rook_kill = function(src, dest){
+    if(src == 0) return false;
+    var delta = this.get_delta(src,dest);
+    if(delta == 0) return false;
+    for(var p = src; (p += delta) != dest;){
+        if(this.square[p]){
+            return false;
+        }
+    }
+    return true;
+}
+
+Chess.prototype.valid_king_kill = function(src, dest){
+    return this.valid_rook_kill(src,dest);
+}
+
+Chess.prototype.valid_cannon_kill = function(src, dest){
+    if(src == 0) return false;
+    var delta = this.get_delta(src,dest);
+    if(delta == 0) return false;
+    var count = 0;
+    for(var p = src; (p += delta) != dest;){
+        if(this.square[p]){
+            count++;
+            if(count > 1) break;
+        }
+    }
+    return count == 1;
+}
+
+Chess.prototype.valid_horse_kill = function(src, dest){
+    if(src == 0) return false;
+    var delta = dest - src;
+    if(delta < -0x22 || delta > 0x22) return false;
+    var leg_delta = Chess.horse_leg_delta[delta + 0x22];
+    if(leg_delta == undefined) return false;
+    return this.square[src + leg_delta] == 0;
+}
+
+Chess.prototype.valid_pawn_kill = function(src, dest){
+    if(src == 0) return false;
+    return src - 0x01 == dest || src + 0x10 == dest || src - 0x01 == dest || src - 0x10 == dest;
+}
+
+Chess.prototype.get_delta = function(src, dest){
+    if((src & 0x0f) == (dest & 0x0f)){
+        if(src < dest){
+            return 0x10;
+        }else if(src > dest){
+            return -0x10;
+        }else{
+            return 0;
+        }
+    }else if((src & 0xf0) == (dest & 0xf0)){
+        if(src < dest){
+            return 0x01;
+        }else if(src > dest){
+            return -0x01;
+        }else{
+            return 0;
+        }
+    }else{
+        return 0;
+    }
+}
+
+Chess.prototype.find_all_moves = function(color, depth, offset) {
     var old_offset = offset;
-    offset = this.find_all_moves_rook(color, depth, this.moves, offset, only_kill);
-    offset = this.find_all_moves_cannon(color, depth, this.moves, offset, only_kill);
-    offset = this.find_all_moves_king(color, depth, this.moves, offset, only_kill);
-    offset = this.find_all_moves_base(color, depth, this.moves, offset, only_kill);
+    offset = this.find_all_moves_rook(color, depth, this.moves, offset);
+    offset = this.find_all_moves_cannon(color, depth, this.moves, offset);
+    offset = this.find_all_moves_king(color, depth, this.moves, offset);
+    offset = this.find_all_moves_base(color, depth, this.moves, offset);
 
     this.sort_moves(color, depth, this.moves, this.scores, old_offset, offset);
 
@@ -580,19 +724,17 @@ Chess.prototype.sort_moves = function(color, depth, moves, scores, offset, end) 
     }
 }
 
-Chess.prototype.find_all_moves_rook = function(color, depth, moves, offset, only_kill) {
+Chess.prototype.find_all_moves_rook = function(color, depth, moves, offset) {
     for (var no = 1; no <= 2; no++) {
         var man = (color << 7) | (1 << 4) | no;
         var src = this.pieces[man];
         if (src == 0) continue;
-        for (var shift = 0; shift < 4; shift++) {
-            var delta = ((shift & 0x1) ? 1 : -1) * (1 << ((shift & 0x2) << 1));
+        for (var i = 0; i < 4; i++) {
+            var delta = Chess.base_delta[i];
             for (var dest = src; Chess.board_mask[(dest = dest + delta)];) {
                 var killed_man = this.square[dest];
                 if (killed_man > 0 && (killed_man >> 7) == color) break;
-                if (killed_man || !only_kill) {
-                    moves[offset++] = src | (dest << 8) | (man << 16) | (killed_man << 24);
-                }
+                moves[offset++] = src | (dest << 8) | (man << 16) | (killed_man << 24);
                 if (killed_man > 0) break;
             }
         }
@@ -600,13 +742,13 @@ Chess.prototype.find_all_moves_rook = function(color, depth, moves, offset, only
     return offset;
 }
 
-Chess.prototype.find_all_moves_cannon = function(color, depth, moves, offset, only_kill) {
+Chess.prototype.find_all_moves_cannon = function(color, depth, moves, offset) {
     for (var no = 1; no <= 2; no++) {
         var man = (color << 7) | (3 << 4) | no;
         var src = this.pieces[man];
         if (src == 0) continue;
-        for (var shift = 0; shift < 4; shift++) {
-            var delta = ((shift & 0x1) ? 1 : -1) * (1 << ((shift & 0x2) << 1));
+        for (var i = 0; i < 4; i++) {
+            var delta = Chess.base_delta[i];
             var mark = false;
             for (var dest = src; Chess.board_mask[(dest = dest + delta)];) {
                 var killed_man = this.square[dest];
@@ -619,7 +761,7 @@ Chess.prototype.find_all_moves_cannon = function(color, depth, moves, offset, on
                     }
                 } else if (killed_man > 0) {
                     mark = true;
-                } else if (!only_kill) {
+                }else{
                     moves[offset++] = src | (dest << 8) | (man << 16);
                 }
             }
@@ -628,7 +770,7 @@ Chess.prototype.find_all_moves_cannon = function(color, depth, moves, offset, on
     return offset;
 }
 
-Chess.prototype.find_all_moves_base = function(color, depth, moves, offset, only_kill) {
+Chess.prototype.find_all_moves_base = function(color, depth, moves, offset) {
     for (var arm = 0; arm < 7; arm++) {
         for (var no = 1; no <= Chess.arms_count[arm]; no++) {
             var man = (color << 7) | (arm << 4) | no;
@@ -642,23 +784,22 @@ Chess.prototype.find_all_moves_base = function(color, depth, moves, offset, only
                 var killed_man = this.square[dest];
                 if (killed_man > 0 && (killed_man >> 7) == color) continue;
                 if (arm == 2) {
-                    if (this.square[src + Chess.horse_lag_delta[dest - src + 0x22]] != 0) continue;
+                    if (this.square[src + Chess.horse_leg_delta[dest - src + 0x22]] != 0) continue;
                 } else if (arm == 5) {
                     if (this.square[(src + dest) >> 1] != 0) continue;
                 }
-                if (killed_man || !only_kill) {
-                    moves[offset++] = m | (no << 16) | (killed_man << 24);
-                }
+                moves[offset++] = m | (no << 16) | (killed_man << 24);
             }
         }
     }
     return offset;
 }
 
-Chess.prototype.find_all_moves_king = function(color, depth, moves, offset, only_kill) {
+Chess.prototype.find_all_moves_king = function(color, depth, moves, offset) {
     var king1 = (color << 7) | (0 << 4) | 1;
     var king2 = ((1 - color) << 7) | (0 << 4) | 1;
-    var pking1 = this.pieces[king1], pking2 = this.pieces[king2]
+    var pking1 = this.pieces[king1], pking2 = this.pieces[king2];
+    if(!pking1 || !pking2) return offset;
     if ((pking1 & 0x0f) == (pking2 & 0x0f)) {
         var d = pking1 < pking2 ? 0x10 : -0x10;
         var found = false;
@@ -680,6 +821,12 @@ function TestEngine() {
     this.chess.reset();
 }
 
+TestEngine.prototype.assert = function(expect, real){
+    if(expect != real){
+        console.error("assert failed: " + expect + " != " + real);
+    }
+}
+
 TestEngine.prototype.run_test = function(name, fn, args) {
     args = args || [];
     var start_time = new Date().getTime();
@@ -691,7 +838,7 @@ TestEngine.prototype.run_test = function(name, fn, args) {
 TestEngine.prototype.test_perf_get_all_moves = function(count) {
     this.chess.reset();
     for (var i = 0; i < count; i++) {
-        this.chess.find_all_moves(0, 7, 0, false);
+        this.chess.find_all_moves(0, 7, 0);
     }
 }
 
@@ -702,7 +849,38 @@ TestEngine.prototype.test_perf_evaluate = function(count) {
     }
 }
 
+TestEngine.prototype.test_check_king = function() {
+    this.chess.reset();
+    
+    this.assert(false,this.chess.check_king(0));
+    
+    this.chess.apply_move(0x00636867);
+    this.chess.apply_move(0x00e39897);
+    this.assert(true,this.chess.check_king(0));
+    this.assert(true,this.chess.check_king(1));
+    
+    this.chess.apply_move(0x00636768);
+    this.chess.apply_move(0x00b1a7a4);
+    this.assert(true,this.chess.check_king(0));
+    this.assert(false,this.chess.check_king(1));
+    
+    this.chess.apply_move(0x00b1a4a7);
+    this.chess.apply_move(0x009147c3);
+    this.assert(true,this.chess.check_king(0));
+    
+    this.chess.apply_move(0x0091c347);
+    this.chess.apply_move(0x00a145c4);
+    this.assert(true,this.chess.check_king(0));
+    
+    this.chess.apply_move(0x00e14693);
+    this.assert(false,this.chess.check_king(0));
+    
+    this.chess.apply_move(0x00e24795);
+    this.assert(true,this.chess.check_king(0));
+}
+
 var test = new TestEngine();
+test.test_check_king();
 
 function GameStatus() {
     this.whos_turn = null;

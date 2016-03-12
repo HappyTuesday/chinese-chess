@@ -31,7 +31,7 @@
   stroke-width: 0.04mm;
   stroke: #ccc;
   fill: #eee;
-  cursor: default;
+  cursor: pointer;
   filter: drop-shadow();
   display: none;
 }
@@ -52,7 +52,7 @@
 .chess-panel .chessman text {
   font-size: 1.1mm;
   font-family: "幼圆";
-  cursor: default;
+  cursor: pointer;
   -webkit-user-select: none;
   -moz-user-select: none;
   stroke-width: 0.03mm;
