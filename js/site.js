@@ -608,11 +608,7 @@ Chess.prototype.iterative_deepening = function(color, max_depth, alpha, beta, of
 Chess.prototype.alpha_beta = function(color, depth, ply, alpha, beta, offset) {
     //profile
     this.total_searched_nodes++;
-    var hash_flag = Chess.HASH_FLAG_ALPHA;
     var value;
-    if((value = this.probe_hash(depth, ply, alpha, beta)) != null){
-        return value;
-    }
     if (depth == 0){
         value = this.evaluate(color,depth);
         this.record_hash(depth, ply, value, Chess.Hash_FLAG_EXACT);
@@ -627,6 +623,10 @@ Chess.prototype.alpha_beta = function(color, depth, ply, alpha, beta, offset) {
         }else if(status == 1){
             return -Chess.INFINITY + ply;
         }
+    }
+    var hash_flag = Chess.HASH_FLAG_ALPHA;
+    if((value = this.probe_hash(depth, ply, alpha, beta)) != null){
+        return value;
     }
     var new_offset = this.find_all_moves(color, depth, offset);
     var best_move = null;
