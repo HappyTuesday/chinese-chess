@@ -47,7 +47,7 @@ function Chess() {
     this.moves = new Array(1 << 10).reset(0);
     this.scores = new Array(1 << 10).reset(0);
     this.max_depth = 20;
-    this.max_search_time = 8000;
+    this.max_search_time = 5000;
     this.current_best_move = null;
     this.maximum_color = 0;
     this.history = new Array(16 << 10);
@@ -658,7 +658,7 @@ Chess.prototype.alpha_beta = function(color, depth, ply, alpha, beta, offset) {
         }
         if(ply == 0 && new Date().getTime() - this.start_search_time > this.max_search_time){
             console.debug("time out occured in depth " + depth + " search....");
-            break;
+            //break;
         }
     }
     this.record_hash(depth, ply, alpha, hash_flag, best_move);
