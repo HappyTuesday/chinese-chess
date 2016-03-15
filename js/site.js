@@ -488,7 +488,7 @@ Chess.prototype.apply_move = function(move) {
     this.square[move & 0xff] = 0;
     this.square[(move & 0xff00) >> 8] = (move & 0xff0000) >> 16;
     this.pieces[(move & 0xff0000) >> 16] = (move & 0xff00) >> 8;
-    
+
     this.hash_low ^= Chess.zorist[(move & 0xff) << 8 | (move & 0xf00000) >> 16 | 0];
     this.hash_high ^= Chess.zorist[(move & 0xff) << 8 | (move & 0xf00000) >> 16 | 1];
     if(move & 0xff000000){
@@ -497,7 +497,7 @@ Chess.prototype.apply_move = function(move) {
     }
     this.hash_low ^= Chess.zorist[move & 0xff00 | (move & 0xf00000) >> 16 | 0];
     this.hash_high ^= Chess.zorist[move & 0xff00 | (move & 0xf00000) >> 16 | 1];
-    
+
     this.step_index += 0x10;
     this.history[this.step_index | 0x0] = this.hash_low;
     this.history[this.step_index | 0x1] = this.hash_high;
@@ -511,7 +511,7 @@ Chess.prototype.reverse_move = function(move) {
     if(move & 0xff000000){
         this.pieces[move >>> 24] = (move & 0xff00) >> 8;
     }
-    
+
     this.hash_low ^= Chess.zorist[move & 0xff00 | (move & 0xf00000) >> 16 | 0];
     this.hash_high ^= Chess.zorist[move & 0xff00 | (move & 0xf00000) >> 16 | 1];
     if(move & 0xff000000){
@@ -520,7 +520,7 @@ Chess.prototype.reverse_move = function(move) {
     }
     this.hash_low ^= Chess.zorist[(move & 0xff) << 8 | (move & 0xf00000) >> 16 | 0];
     this.hash_high ^= Chess.zorist[(move & 0xff) << 8 | (move & 0xf00000) >> 16 | 1];
-    
+
     if(this.history[this.step_index | 2] != move){
         console.error("invalid apply/reverse move sequence: " + this.print_move(move));
     }
@@ -536,9 +536,9 @@ Chess.prototype.find_best_move = function(color) {
     this.total_searched_moves = 0;
     this.total_hash_record = 0;
     this.total_hash_matched = 0;
-    
+
     this.best_move_table.reset(0);
-    
+
     this.start_search_time = new Date().getTime();
 
     this.iterative_deepening(color, this.max_depth, -Chess.INFINITY << 1, Chess.INFINITY << 1, 0);
@@ -549,7 +549,7 @@ Chess.prototype.find_best_move = function(color) {
         ", total evaluated times = " + this.total_evaluated_times +
         ", total searched nodes = " + this.total_searched_nodes +
         ", total searched moves = " + this.total_searched_moves +
-        ", total hash record = " + this.total_hash_record + 
+        ", total hash record = " + this.total_hash_record +
         ", total hash matched = " + this.total_hash_matched);
 
     return this.current_best_move;
@@ -590,14 +590,18 @@ Chess.prototype.check_if_repeat = function(){
             return 2;
         }
     }else{
-        return 0; 
+        return 0;
     }
 }
 
 Chess.prototype.iterative_deepening = function(color, max_depth, alpha, beta, offset) {
     var value = null;
     for(var depth = 1; depth < max_depth; depth++){
+        this.current_depth_search_timeout = false;
+        var last_best_move = this.current_bast_move;
         value = this.alpha_beta(color, depth, 0, alpha, beta, offset);
+        if(this.current_depth_search_timeout) break;
+        this.current_bast_move = last_best_move;
         if(value >= Chess.INFINITY - Chess.MAX_PLY || (new Date().getTime() - this.start_search_time > this.max_search_time)){
             break;
         }
@@ -656,9 +660,12 @@ Chess.prototype.alpha_beta = function(color, depth, ply, alpha, beta, offset) {
                 }
             }
         }
-        if(ply == 0 && new Date().getTime() - this.start_search_time > this.max_search_time){
-            console.debug("time out occured in depth " + depth + " search....");
-            //break;
+        if(new Date().getTime() - this.start_search_time > this.max_search_time){
+            if(ply == 0){
+                console.debug("time out occured in depth " + depth + " search....");
+                this.current_depth_search_timeout = true;
+            }
+            break;
         }
     }
     this.record_hash(depth, ply, alpha, hash_flag, best_move);
@@ -766,7 +773,7 @@ Chess.prototype.probe_hash = function(depth, ply, alpha, beta){
             }
         }
     }
-    
+
     return null;
 }
 
@@ -799,7 +806,7 @@ Chess.prototype.check_king_2 = function(color){
     var c = color << 7, oc = (1 - color) << 7;
     var king_addr = this.pieces[c | 0x01];
     if(king_addr == 0) return true;
-    
+
     // king, rook, cannon, pawn
     for(var i = 0; i < 4; i++){
         var delta = Chess.base_delta[i];
@@ -820,7 +827,7 @@ Chess.prototype.check_king_2 = function(color){
             }
         }
     }
-        
+
     // horse
     var horse_ms = Chess.base_move_def[0x02][oc >> 7][king_addr];
     for(var i = 0; i < horse_ms.length; i++){
@@ -831,7 +838,7 @@ Chess.prototype.check_king_2 = function(color){
             return true;
         }
     }
-    
+
     return false;
 }
 
@@ -839,7 +846,7 @@ Chess.prototype.check_king = function(color){
     var c = color << 7, oc = (1 - color) << 7;
     var king_addr = this.pieces[c | 0x01];
     if(king_addr == 0) return true;
-    
+
     return this.valid_king_kill(this.pieces[oc | 0x01], king_addr) ||
         this.valid_rook_kill(this.pieces[oc | 0x11], king_addr) ||
         this.valid_rook_kill(this.pieces[oc | 0x12], king_addr) ||
@@ -1087,30 +1094,30 @@ TestEngine.prototype.test_perf_evaluate = function(count) {
 
 TestEngine.prototype.test_check_king = function() {
     this.chess.reset();
-    
+
     this.assert(false,this.chess.check_king(0));
-    
+
     this.chess.apply_move(0x00636867);
     this.chess.apply_move(0x00e39897);
     this.assert(true,this.chess.check_king(0));
     this.assert(true,this.chess.check_king(1));
-    
+
     this.chess.apply_move(0x00636768);
     this.chess.apply_move(0x00b1a7a4);
     this.assert(true,this.chess.check_king(0));
     this.assert(false,this.chess.check_king(1));
-    
+
     this.chess.apply_move(0x00b1a4a7);
     this.chess.apply_move(0x009147c3);
     this.assert(true,this.chess.check_king(0));
-    
+
     this.chess.apply_move(0x0091c347);
     this.chess.apply_move(0x00a145c4);
     this.assert(true,this.chess.check_king(0));
-    
+
     this.chess.apply_move(0x00e14693);
     this.assert(false,this.chess.check_king(0));
-    
+
     this.chess.apply_move(0x00e24795);
     this.assert(true,this.chess.check_king(0));
 }
@@ -1122,7 +1129,7 @@ TestEngine.prototype.test_zorist = function(){
     this.assert(false, this.chess.hash_high == hash_high && this.chess.hash_low == hash_low);
     this.chess.reverse_move(0x00433311);
     this.assert(true, this.chess.hash_high == hash_high && this.chess.hash_low == hash_low);
-    
+
     this.chess.apply_move(0xa131c454);
     this.assert(false, this.chess.hash_high == hash_high && this.chess.hash_low == hash_low);
     this.chess.reverse_move(0xa131c454);
@@ -1133,19 +1140,19 @@ TestEngine.prototype.test_check_if_repeat = function(){
     this.chess.reset();
     this.chess.apply_move(0x00014737);
     this.chess.apply_move(0x009145c3);
-    
+
     this.chess.apply_move(0x00015747);
     this.chess.apply_move(0x00915545);
     this.chess.apply_move(0x00014757);
     this.chess.apply_move(0x00914555);
-    
+
     this.assert(0,this.chess.check_if_repeat());
-    
+
     this.chess.apply_move(0x00015747);
     this.chess.apply_move(0x00915545);
     this.chess.apply_move(0x00014757);
     this.chess.apply_move(0x00914555);
-    
+
     this.assert(3,this.chess.check_if_repeat());
 }
 
